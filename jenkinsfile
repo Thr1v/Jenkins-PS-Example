@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'windows' }  // Update to your Windows agent label
+    agent { label 'windows' }  // change to your Windows agent label
 
     options {
         timestamps()
@@ -54,10 +54,8 @@ Build: #${env.BUILD_NUMBER}
 Result: SUCCESS
 
 You can view the build at: ${env.BUILD_URL}""",
-                // Attach the Jenkins console log:
                 attachLog: true,
                 compressLog: true,
-                // Optional: also attach the CSV "log" produced by the script
                 attachmentsPattern: 'reports/*.csv'
             )
         }
