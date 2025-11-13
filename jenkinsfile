@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'windows' }  // or whatever your Windows agent label is
+    agent { label 'windows' }  // Update to your Windows agent label
 
     options {
         timestamps()
@@ -7,13 +7,14 @@ pipeline {
     }
 
     triggers {
-        // Nightly around 02:00
+        // Nightly-ish at 02:00
         cron('H 2 * * *')
     }
 
     parameters {
-        string(name: 'LOG_PATH', defaultValue: 'C:\\Logs', description: 'Path to clean')
-        string(name: 'DAYS_TO_KEEP', defaultValue: '14', description: 'Days of logs to keep')
+        string(name: 'LOG_PATH',       defaultValue: 'C:\\Logs', description: 'Path to scan')
+        string(name: 'DAYS_THRESHOLD', defaultValue: '14',       description: 'Age threshold in days')
+        string(name: 'EMAIL_TO',       defaultValue: 'ops-team@example.com', description: 'Notification recipients')
     }
 
     stages {
@@ -23,11 +24,11 @@ pipeline {
             }
         }
 
-        stage('Run cleanup script') {
+        stage('Run log metrics script') {
             steps {
                 powershell '''
                     $ErrorActionPreference = "Stop"
-                    ./cleanup-logs.ps1 -LogPath "${env:LOG_PATH}" -DaysToKeep [int]${env:DAYS_TO_KEEP}
+                    ./log-metrics.ps1 -LogPath "${env:LOG_PATH}" -DaysThreshold [int]${env:DAYS_THRESHOLD}
                 '''
             }
         }
@@ -41,11 +42,42 @@ pipeline {
 
     post {
         success {
-            echo "Log cleanup completed successfully."
-            // later you can add email/slack notifications here
+            echo "Log metrics job completed successfully."
+
+            emailext(
+                to: "${params.EMAIL_TO}",
+                subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """Log metrics job completed successfully.
+
+Job: ${env.JOB_NAME}
+Build: #${env.BUILD_NUMBER}
+Result: SUCCESS
+
+You can view the build at: ${env.BUILD_URL}""",
+                // Attach the Jenkins console log:
+                attachLog: true,
+                compressLog: true,
+                // Optional: also attach the CSV "log" produced by the script
+                attachmentsPattern: 'reports/*.csv'
+            )
         }
         failure {
-            echo "Log cleanup failed. Check console output."
+            echo "Log metrics job failed. Sending failure email."
+
+            emailext(
+                to: "${params.EMAIL_TO}",
+                subject: "FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: """Log metrics job FAILED.
+
+Job: ${env.JOB_NAME}
+Build: #${env.BUILD_NUMBER}
+Result: FAILURE
+
+Please check the console log: ${env.BUILD_URL}console""",
+                attachLog: true,
+                compressLog: true,
+                attachmentsPattern: 'reports/*.csv'
+            )
         }
     }
 }
