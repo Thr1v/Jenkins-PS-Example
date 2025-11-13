@@ -11,13 +11,11 @@ if (-not (Test-Path $ReportPath)) {
 $now = Get-Date
 $cutoff = $now.AddDays(-$DaysThreshold)
 
-# Get all files under the log path
 $allFiles = Get-ChildItem -Path $LogPath -Recurse -File -ErrorAction SilentlyContinue
 
 $totalFiles = $allFiles.Count
 $totalSizeBytes = ($allFiles | Measure-Object -Property Length -Sum).Sum
 
-# Files older than cutoff (but we DON'T delete them)
 $oldFiles = $allFiles | Where-Object { $_.LastWriteTime -lt $cutoff }
 $oldFilesCount = $oldFiles.Count
 $oldFilesSizeBytes = ($oldFiles | Measure-Object -Property Length -Sum).Sum
