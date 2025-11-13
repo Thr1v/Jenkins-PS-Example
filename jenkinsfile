@@ -1,0 +1,51 @@
+pipeline {
+    agent { label 'windows' }  // or whatever your Windows agent label is
+
+    options {
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+    }
+
+    triggers {
+        // Nightly around 02:00
+        cron('H 2 * * *')
+    }
+
+    parameters {
+        string(name: 'LOG_PATH', defaultValue: 'C:\\Logs', description: 'Path to clean')
+        string(name: 'DAYS_TO_KEEP', defaultValue: '14', description: 'Days of logs to keep')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Run cleanup script') {
+            steps {
+                powershell '''
+                    $ErrorActionPreference = "Stop"
+                    ./cleanup-logs.ps1 -LogPath "${env:LOG_PATH}" -DaysToKeep [int]${env:DAYS_TO_KEEP}
+                '''
+            }
+        }
+
+        stage('Archive report') {
+            steps {
+                archiveArtifacts artifacts: 'reports/*.csv', fingerprint: true
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Log cleanup completed successfully."
+            // later you can add email/slack notifications here
+        }
+        failure {
+            echo "Log cleanup failed. Check console output."
+        }
+    }
+}
