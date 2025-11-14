@@ -28,7 +28,14 @@ pipeline {
             steps {
                 powershell '''
                     $ErrorActionPreference = "Stop"
-                    ./log-metrics.ps1 -LogPath "${env:LOG_PATH}" -DaysThreshold [int]${env:DAYS_THRESHOLD}
+                    
+                    $LogPath = $env:LOG_PATH
+                    $days    = [int]$env:DAYS_THRESHOLD
+
+                    Write-Host "Using $LogPath log path"
+                    Write-Host "$days left on the threshold"
+                    
+                    ./log-metrics.ps1 -LogPath $LogPath -DaysThreshold $days
                 '''
             }
         }
