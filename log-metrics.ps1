@@ -39,3 +39,11 @@ Write-Host "Total size (bytes): $totalSizeBytes"
 Write-Host "Files older than $DaysThreshold days: $oldFilesCount"
 Write-Host "Old files size (bytes): $oldFilesSizeBytes"
 Write-Host "Report written to $reportFile"
+
+# --- CSV preview written into Jenkins log ---
+Write-Host ""
+Write-Host "===== CSV report preview ====="
+Get-Content $reportFile |
+    Select-Object -First 20 |
+    ForEach-Object { Write-Host $_ }
+Write-Host "===== end of report preview ====="
