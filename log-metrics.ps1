@@ -4,20 +4,22 @@ param(
     [string]$ReportPath = ".\reports"
 )
 
+# Ensure the workspace 'reports' directory exists (for Jenkins artifacts)
 if (-not (Test-Path $ReportPath)) {
     New-Item -ItemType Directory -Path $ReportPath | Out-Null
 }
 
-$now = Get-Date
+$now    = Get-Date
 $cutoff = $now.AddDays(-$DaysThreshold)
 
+# Gather files from the log path (input only, we don't write here)
 $allFiles = Get-ChildItem -Path $LogPath -Recurse -File -ErrorAction SilentlyContinue
 
-$totalFiles = $allFiles.Count
-$totalSizeBytes = ($allFiles | Measure-Object -Property Length -Sum).Sum
+$totalFiles      = $allFiles.Count
+$totalSizeBytes  = ($allFiles | Measure-Object -Property Length -Sum).Sum
 
-$oldFiles = $allFiles | Where-Object { $_.LastWriteTime -lt $cutoff }
-$oldFilesCount = $oldFiles.Count
+$oldFiles        = $allFiles | Where-Object { $_.LastWriteTime -lt $cutoff }
+$oldFilesCount   = $oldFiles.Count
 $oldFilesSizeBytes = ($oldFiles | Measure-Object -Property Length -Sum).Sum
 
 $report = [PSCustomObject]@{
@@ -30,6 +32,7 @@ $report = [PSCustomObject]@{
     OldFilesSizeBytes = $oldFilesSizeBytes
 }
 
+# CSV inside the Jenkins workspace (for artifacts)
 $reportFile = Join-Path $ReportPath ("log_metrics_{0:yyyyMMdd_HHmmss}.csv" -f $now)
 $report | Export-Csv -Path $reportFile -NoTypeInformation
 
@@ -40,10 +43,27 @@ Write-Host "Files older than $DaysThreshold days: $oldFilesCount"
 Write-Host "Old files size (bytes): $oldFilesSizeBytes"
 Write-Host "Report written to $reportFile"
 
-# --- CSV preview written into Jenkins log ---
+# --- CSV preview in Jenkins console ---
 Write-Host ""
 Write-Host "===== CSV report preview ====="
 Get-Content $reportFile |
     Select-Object -First 20 |
     ForEach-Object { Write-Host $_ }
 Write-Host "===== end of report preview ====="
+
+# --- Also copy the report to C:\Logs\Reports on the Jenkins server ---
+try {
+    $serverReportDir = Join-Path $LogPath "Reports"
+
+    if (-not (Test-Path $serverReportDir)) {
+        New-Item -ItemType Directory -Path $serverReportDir -Force | Out-Null
+    }
+
+    $serverReportFile = Join-Path $serverReportDir (Split-Path $reportFile -Leaf)
+    Copy-Item -Path $reportFile -Destination $serverReportFile -Force
+
+    Write-Host "Report also copied to $serverReportFile"
+}
+catch {
+    Write-Warning "Could not copy report to $LogPath\Reports : $_"
+}
